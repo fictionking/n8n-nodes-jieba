@@ -1,0 +1,63 @@
+{
+  "name": "@fictionking/n8n-nodes-jieba",
+  "version": "0.1.3",
+  "description": "n8n节点插件：基于jieba-wasm的中文分词功能",
+  "license": "MIT",
+  "homepage": "https://github.com/fictionking/n8n-nodes-jieba",
+  "author": {
+    "name": "fictionking",
+    "email": "fictionking@hotmail.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fictionking/n8n-nodes-jieba.git"
+  },
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc && npm run copy-assets",
+    "copy-assets": "copyfiles -u 1 \"src/**/!(*.js|*.jsx|*.ts|*.tsx|*.vue|*.svelte)\" dist",
+    "dev": "tsc --watch",
+    "format": "prettier -w .",
+    "lint": "eslint .",
+    "lintfix": "eslint . --fix",
+    "prepublishOnly": "npm run build",
+    "test": "jest"
+  },
+  "files": [
+    "dist",
+    "index.js",
+    "package.json",
+    "README.md",
+    "jieba.svg"
+  ],
+  "keywords": [
+    "n8n-community-node-package",
+    "jieba",
+    "chinese",
+    "tokenization",
+    "nlp"
+  ],
+  "n8n": {
+    "n8nNodesApiVersion": 1,
+    "nodes": [
+      "dist/nodes/JiebaTokenizer/JiebaTokenizer.node.js"
+    ]
+  },
+  "dependencies": {
+    "jieba-wasm": "latest",
+    "n8n-workflow": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^16.0.0",
+    "copyfiles": "^2.4.1",
+    "prettier": "^2.8.7",
+    "typescript": "^5.0.4"
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "testTimeout": 10000,
+    "collectCoverage": true,
+    "coverageDirectory": "coverage"
+  }
+}
