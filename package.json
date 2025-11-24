@@ -1,6 +1,6 @@
 {
   "name": "@fictionking/n8n-nodes-jieba",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "n8n节点插件：基于jieba-wasm的中文分词功能",
   "license": "MIT",
   "homepage": "https://github.com/fictionking/n8n-nodes-jieba",
@@ -49,9 +49,9 @@
   "devDependencies": {
     "@types/node": "^16.0.0",
     "copyfiles": "^2.4.1",
+    "n8n-workflow": "*",
     "prettier": "^2.8.7",
-    "typescript": "^5.0.4",
-    "n8n-workflow": "*"
+    "typescript": "^5.0.4"
   },
   "jest": {
     "preset": "ts-jest",
