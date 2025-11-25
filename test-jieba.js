@@ -4,7 +4,8 @@ const {
   cut_for_search,
   tokenize,
   add_word,
-  with_dict
+  with_dict,
+  tag
 } = require("jieba-wasm");
 console.log(cut("中华人民共和国武汉市长江大桥", true));
 // [ '中华人民共和国', '武汉市', '长江大桥' ]
@@ -60,6 +61,14 @@ console.log(tokenize("中华人民共和国武汉市长江大桥", "search", tru
   { word: '长江', start: 10, end: 12 },
   { word: '大桥', start: 12, end: 14 },
   { word: '长江大桥', start: 10, end: 14 }
+]
+*/
+console.log(tag("中华人民共和国武汉市长江大桥在哪里啊？"));
+/*
+[
+  [ '中华人民共和国', 'ns' ],
+  [ '武汉市', 'ns' ],
+  [ '长江大桥', 'ns' ]
 ]
 */
 

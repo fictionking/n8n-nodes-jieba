@@ -1,6 +1,6 @@
 {
   "name": "@fictionking/n8n-nodes-jieba",
-  "version": "0.1.5",
+  "version": "1.1.0",
   "description": "n8n节点插件：基于jieba-wasm的中文分词功能",
   "license": "MIT",
   "homepage": "https://github.com/fictionking/n8n-nodes-jieba",

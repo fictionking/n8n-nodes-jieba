@@ -2,7 +2,7 @@ import { IExecuteFunctions, INodeExecutionData, INodeType, INodeTypeDescription 
 import * as fs from 'fs';
 
 // 导入jieba-wasm库
-import { cut, cut_all, cut_for_search, with_dict, add_word } from 'jieba-wasm';
+import { cut, cut_all, cut_for_search, with_dict, add_word, tag } from 'jieba-wasm';
 
 // 全局变量存储词典加载状态
 // 在n8n中，节点实例是单例的，但execute方法中的this是IExecuteFunctions类型
@@ -102,24 +102,31 @@ function loadCustomDictionary(config: {
   dictionaryText?: string;
   dictionaryPath?: string;
 }): void {
-  // 更新配置
-  dictionaryConfig = {
+  // 暂存新配置，先不更新全局配置，因为需要先检查是否有变化
+  const newConfig = {
     customDictionary: config.customDictionary,
     dictionaryText: config.dictionaryText || '',
     dictionaryPath: config.dictionaryPath || '',
   };
 
-  // 如果不使用自定义词典，重置加载状态并返回
+  // 如果不使用自定义词典，重置加载状态并更新配置
   if (config.customDictionary === 'none') {
+    dictionaryConfig = newConfig;
     dictionaryLoaded = false;
     return;
   }
 
   // 如果配置没变且已经加载过，不需要重新加载
+  // 这里依赖hasDictionaryChanged函数严格比较参数值与上次的是否相同
   if (dictionaryLoaded && !hasDictionaryChanged(config)) {
+    // 更新配置为最新值（即使没有变更也更新，确保与当前参数一致）
+    dictionaryConfig = newConfig;
     return;
   }
 
+  // 配置有变更，更新全局配置并重新加载词典
+  dictionaryConfig = newConfig;
+  
   try {
     if (config.customDictionary === 'text' && config.dictionaryText) {
       // 从文本输入获取词典内容并处理
@@ -135,7 +142,6 @@ function loadCustomDictionary(config: {
       dictionaryLoaded = true;
     }
   } catch (error) {
-    console.error('加载自定义词典失败:', error);
     // 加载失败时不设置标志，允许下次尝试重新加载
     dictionaryLoaded = false;
   }
@@ -173,18 +179,7 @@ export class JiebaTokenizer implements INodeType {
         description: '要进行分词的中文文本',
         placeholder: '输入要分词的中文文本',
       },
-      {
-        displayName: '分词模式',
-        name: 'mode',
-        type: 'options',
-        options: [
-          { name: '精确模式', value: 'default' },
-          { name: '全模式', value: 'full' },
-          { name: '搜索引擎模式', value: 'search' },
-        ],
-        default: 'default',
-        description: '选择分词模式',
-      },
+      { displayName: '分词模式', name: 'mode', type: 'options', options: [{ name: '精确模式', value: 'default' }, { name: '全模式', value: 'full' }, { name: '搜索引擎模式', value: 'search' }, { name: '词性标注模式', value: 'tag' },], default: 'default', description: '选择分词模式', },
       {
         displayName: '自定义词典',
         name: 'customDictionary',
@@ -243,22 +238,24 @@ export class JiebaTokenizer implements INodeType {
     let item: INodeExecutionData;
 
     try {
-      // 获取词典配置
-      const customDictionary = this.getNodeParameter('customDictionary', 0) as string;
-      const config: { customDictionary: string; dictionaryText?: string; dictionaryPath?: string } = {
-        customDictionary
-      };
-
-      if (customDictionary === 'text') {
-        config.dictionaryText = this.getNodeParameter('dictionaryText', 0) as string;
-      } else if (customDictionary === 'file') {
-        config.dictionaryPath = this.getNodeParameter('dictionaryPath', 0) as string;
-      }
-      loadCustomDictionary(config);
-
       // 处理每个输入项
       for (let itemIndex = 0; itemIndex < items.length; itemIndex++) {
         try {
+          // 获取词典配置（每个输入项单独获取，确保能检测配置变更）
+          const customDictionary = this.getNodeParameter('customDictionary', itemIndex) as string;
+          const config: { customDictionary: string; dictionaryText?: string; dictionaryPath?: string } = {
+            customDictionary
+          };
+
+          if (customDictionary === 'text') {
+            config.dictionaryText = this.getNodeParameter('dictionaryText', itemIndex) as string;
+          } else if (customDictionary === 'file') {
+            config.dictionaryPath = this.getNodeParameter('dictionaryPath', itemIndex) as string;
+          }
+          
+          // 加载或更新自定义词典
+          loadCustomDictionary(config);
+          
           // 获取文本和模式参数
           const text = this.getNodeParameter('text', itemIndex) as string;
           const mode = this.getNodeParameter('mode', itemIndex) as string;
@@ -266,6 +263,13 @@ export class JiebaTokenizer implements INodeType {
           let tokens: string[] = [];
 
           // 根据模式执行分词
+          // 定义词性标注结果的类型，匹配jieba-wasm的tag函数返回类型
+          interface TaggedToken {
+            word: string;
+            tag: string;
+          }
+          let taggedTokens: TaggedToken[] = [];
+
           switch (mode) {
             case 'full':
               // 全模式 - 扫描出所有可能的词语
@@ -274,6 +278,10 @@ export class JiebaTokenizer implements INodeType {
             case 'search':
               // 搜索引擎模式 - 对长词再次切分
               tokens = cut_for_search(text);
+              break;
+            case 'tag':
+              // 词性标注模式 - 分词并返回词性
+              taggedTokens = tag(text);
               break;
             case 'default':
             default:
@@ -287,9 +295,13 @@ export class JiebaTokenizer implements INodeType {
             json: {
               ...items[itemIndex].json,
               originalText: text,
-              tokens,
-              tokenCount: tokens.length,
+              tokens: mode === 'tag' ? taggedTokens.map(token => token.word) : tokens,
+              tokenCount: mode === 'tag' ? taggedTokens.length : tokens.length,
               mode,
+              ...(mode === 'tag' && {
+                taggedTokens,
+                tokensWithTags: taggedTokens,
+              }),
             },
           };
 
